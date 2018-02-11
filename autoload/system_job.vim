@@ -16,15 +16,30 @@ function! s:_on_stderr(data) abort dict
   call extend(self.stderr, a:data[1:])
 endfunction
 
-function! system_job#systemlist(...) abort
-  let job = s:Job.start(a:000, {
+function! s:jobstartwrap(list) abort
+  if type(a:list[0]) == v:t_list
+    let args = a:list[0]
+  else
+    let args = a:list
+  endif
+
+  let job = s:Job.start(args, {
         \ 'stdout': [''],
         \ 'stderr': [''],
         \ 'on_stdout': function('s:_on_stdout'),
         \ 'on_stderr': function('s:_on_stderr'),
         \})
   let exit_status = job.wait()
-  if exit_status
+  return {
+        \ 'exit_status': exit_status,
+        \ 'stdout': job.stdout,
+        \ 'stderr': job.stderr,
+        \}
+endfunction
+
+function! system_job#systemlist(...) abort
+  let job = s:jobstartwrap(a:000)
+  if job.exit_status
     return job.stderr
   else
     return job.stdout
@@ -32,15 +47,9 @@ function! system_job#systemlist(...) abort
 endfunction
 
 function! system_job#system(...) abort
-  let job = s:Job.start(a:000, {
-        \ 'stdout': [''],
-        \ 'stderr': [''],
-        \ 'on_stdout': function('s:_on_stdout'),
-        \ 'on_stderr': function('s:_on_stderr'),
-        \})
-  let exit_status = job.wait()
+  let job = s:jobstartwrap(a:000)
   let lines = ''
-  if exit_status
+  if job.exit_status
     for line in job.stderr
       let lines .= line . "\n"
     endfor
